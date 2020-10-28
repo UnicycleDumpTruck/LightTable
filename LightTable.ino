@@ -1,6 +1,8 @@
 #include <Adafruit_SleepyDog.h>
+//#include <Adafruit_NeoPxl8.h>
 //#include <MemoryFree.h>
 #include <SPI.h>
+#include <Adafruit_NeoPixel.h>
 
 #include <WiFiNINA.h>
 //#include <WiFi101.h>
@@ -17,51 +19,17 @@ long wifiInterval = 300000; // Check the wifi connection every minutes
 
 
 
-// Radio Includes and variables:
-
-//#include <SPI.h>
-#include <RH_RF69.h>
-#include <RHReliableDatagram.h>
-
-#define RF69_FREQ 915.0
-
-#define MY_ADDRESS     1
-
-// Feather M0 w/Radio
-#define RFM69_CS      8
-#define RFM69_IRQ     3
-#define RFM69_RST     4
-
-
-// Feather M0 w/Radio Featherwing
-//#define RFM69_CS      10   // "B"
-//#define RFM69_RST     11   // "A"
-//#define RFM69_IRQ     6    // "D"
-//#define RFM69_IRQN    digitalPinToInterrupt(RFM69_IRQ )
-
-//#define RELAY 		  12
-
-// Singleton instance of the radio driver
-RH_RF69 rf69(RFM69_CS, RFM69_IRQ);
-
-// Class to manage message delivery and receipt, using the driver declared above
-RHReliableDatagram rf69_manager(rf69, MY_ADDRESS);
-
-int16_t packetnum = 0;  // packet counter, we increment per xmission
-
-uint32_t localCounter = 1;
-
-struct EvenDataPacket{
-  uint32_t counter;
-  float batteryVoltage;
-  uint8_t cubeID;
-  uint8_t side;
-} eventData;
+//struct EvenDataPacket{
+//  uint32_t counter;
+//  float batteryVoltage;
+//  uint8_t cubeID;
+//  uint8_t side;
+//} eventData;
 
 // Dont put this on the stack:
-uint8_t eventBuffer[sizeof(eventData)];
-uint8_t from;
-uint8_t len = sizeof(eventData);
+//uint8_t eventBuffer[sizeof(eventData)];
+//uint8_t from;
+//uint8_t len = sizeof(eventData);
 
 
 
@@ -72,14 +40,6 @@ uint8_t len = sizeof(eventData);
 #define ESP32_RESETN  12   // Reset pin
 #define SPIWIFI_ACK   11   // a.k.a BUSY or READY pin
 #define ESP32_GPIO0   10
-
-
-
-///#define WIFI_SHIELD_CS 8
-
-//byte mac[] = {
-//  0x98, 0x76, 0xB6, 0x10, 0xb6, 0x53
-//};
 
 IPAddress ip(10, 10, 212, 201);		// will change when moved to new VLAN
 //IPAddress ip(192, 168, 0, 101);		// will change when moved to new VLAN
@@ -110,82 +70,6 @@ char  ReplyBuffer[] = "acknowledged";       // a string to send back
 
 WiFiUDP Udp;
 
-
-void selectRadio() {
-//  digitalWrite(SPIWIFI_SS, HIGH);
-  //delay(100);
-  digitalWrite(RFM69_CS, LOW);
-  delay(100);
-}
-
-void selectWiFi() {
-  digitalWrite(RFM69_CS, HIGH);
-  //delay(100);
-//  digitalWrite(SPIWIFI_SS, LOW);
-  delay(100);
-}
-
-void sendDispenseEvent()
-{
-	//eventData.side = 1;
-	eventData.counter = localCounter;
-	localCounter++;
-	eventData.cubeID = 0;
-	eventData.side = 61;
-	Serial.print(F("About to send transmission number: "));
-	Serial.println(eventData.counter);	  	
-	sendEventData();
-	//eventData.side = 0;
-}
-
-//RF communication
-void sendEventData()
-{  
-	rf69.send((uint8_t*)&eventData, sizeof(eventData));
-	rf69.waitPacketSent();
-}
-
-void setupRadio()
-{
-	//--Radio Setup--//
-	selectRadio();
-	pinMode(RFM69_RST, OUTPUT);
-	digitalWrite(RFM69_RST, LOW);
-
-	Serial.println(F("Feather Addressed RFM69 TX Test!"));
-	Serial.println();
-
-	// manual reset
-	digitalWrite(RFM69_RST, HIGH);
-	delay(50);
-	digitalWrite(RFM69_RST, LOW);
-	delay(50);
-  
-	if (!rf69_manager.init()) {
-		Serial.println(F("RFM69 radio init failed"));
-		while (1);
-	}
-	Serial.println(F("RFM69 radio init OK!"));
-	// Defaults after init are 434.0MHz, modulation GFSK_Rb250Fd250, +13dbM (for low power module)
-	// No encryption
-	if (!rf69.setFrequency(RF69_FREQ)) {
-		Serial.println(F("setFrequency failed"));
-	}
-
-	// If you are using a high power RF69 eg RFM69HW, you *must* set a Tx power with the
-	// ishighpowermodule flag set like this:
-	rf69.setTxPower(20, true);  // range from 14-20 for power, 2nd arg must be true for 69HCW
-
-	// The encryption key has to be the same as the one in the server
-	uint8_t key[] = { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
-					0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08};
-	rf69.setEncryptionKey(key);  
-
-	eventData.cubeID = 0; // 1.Music, 2.Animals, 3.Weather, 50.Penny, 51.Penny, 60.Loan Desk
-	eventData.side = 0;
-	eventData.batteryVoltage = 0;
-	eventData.counter = 0;
-}
 
 void setupWiFi()
 {
@@ -238,46 +122,77 @@ void setupWiFi()
 
 	Udp.begin(localPort);
 	Udp.beginPacket(splunkIp, splunkPort);
-	Udp.write("c=0 reconnect=1");
+	Udp.write("c=7 reconnect=1");
 	Udp.endPacket();
 
 
 }
 
+
+// NeoPixel Setup--------------------------------------------------------------
+
+// Which pin on the Arduino is connected to the NeoPixels?
+#define NEO_PIN_1       9 // On Trinket or Gemma, suggest changing this to 1
+#define NEO_PIN_2       5
+
+// How many NeoPixels are attached to the Arduino?
+#define NUMPIXELS 63 // Popular NeoPixel ring size
+
+// When setting up the NeoPixel library, we tell it how many pixels,
+// and which pin to use to send signals. Note that for older NeoPixel
+// strips you might need to change the third parameter -- see the
+// strandtest example for more information on possible values.
+Adafruit_NeoPixel wallPixels(NUMPIXELS, NEO_PIN_1, NEO_GRB + NEO_KHZ800);
+Adafruit_NeoPixel endPixels(NUMPIXELS, NEO_PIN_2, NEO_GRB + NEO_KHZ800);
+
+#define DELAYVAL 50 // Time (in milliseconds) to pause between pixels
+
+long colorChangeInterval = 10000;
+long prevColorChangeMillis = 0;
+int colorListPosition = 0;
+
+const uint32_t red = wallPixels.Color(255, 0, 0);
+const uint32_t rose = wallPixels.Color(255, 0, 128);
+const uint32_t magenta = wallPixels.Color(255, 0, 255);
+const uint32_t violet = wallPixels.Color(128, 0, 255);
+const uint32_t blue = wallPixels.Color(0, 0, 255);
+const uint32_t azure = wallPixels.Color(0, 128, 255);
+const uint32_t cyan = wallPixels.Color(0, 255, 255);
+const uint32_t springgreen = wallPixels.Color(0, 255, 128);
+const uint32_t green = wallPixels.Color(0, 255, 0);
+const uint32_t chartreuse = wallPixels.Color(128, 255, 0);
+const uint32_t yellow = wallPixels.Color(255, 255, 0);
+const uint32_t orange = wallPixels.Color(255, 128, 0);
+
+const int colorList[] = {red, rose, magenta, violet, blue, azure, cyan, springgreen, green, chartreuse, yellow, orange};
+
+
 void setup() 
 {
+	delay(1000);
+	wallPixels.begin(); // INITIALIZE NeoPixel strip object (REQUIRED)
+  endPixels.begin();
 	Serial.begin(9600);
 	delay(5000);
 	//while (!Serial);
 
 	//pinMode(WIFI_SHIELD_CS, OUTPUT);
 
-	setupRadio();
 	pinMode(ESP32_RESETN,OUTPUT);
 	digitalWrite(ESP32_RESETN,LOW);
 	delay(500);
 	digitalWrite(ESP32_RESETN,HIGH);
-
-	setupWiFi();
+	/*setupWiFi();
 
 	Serial.print(F("Splunk IP: "));
 	Serial.println(splunkIp);
 	Serial.print(F("Splunk Port: "));
 	Serial.println(splunkPort);
-	
-//	Serial.print(F(" FreeRAM= ")); //F function does the same and is now a built in library, in IDE > 1.0.0
-//	Serial.println(freeMemory(), DEC);  // print how much RAM is available.	
-
-//delay(10000);
-
-//	selectWiFi();
-	
-
-
 	Serial.print(F("Pinging "));
 	Serial.print(pingHost);
 	Serial.print(F(": "));
 
+	
 	pingResult = WiFi.ping(pingHost);
 
 	if (pingResult >= 0) {
@@ -293,69 +208,68 @@ void setup()
 	Udp.beginPacket(splunkIp, splunkPort);
 	Udp.write("c=0 reboot=1");
 	Udp.endPacket();
+  */
 
-
-	// First a normal example of using the watchdog timer.
-	// Enable the watchdog by calling Watchdog.enable() as below.
-	// This will turn on the watchdog timer with a ~4 second timeout
-	// before reseting the Arduino. The estimated actual milliseconds
-	// before reset (in milliseconds) is returned.
-	// Make sure to reset the watchdog before the countdown expires or
-	// the Arduino will reset!
 	int countdownMS = Watchdog.enable(4000);
 	Serial.print(F("Enabled the watchdog with max countdown of "));
 	Serial.print(countdownMS, DEC);
 	Serial.println(F(" milliseconds!"));
 	Serial.println();
-
-
+ 
 } // END SETUP //
 
 void loop()
 {
-  //selectWiFi();
   unsigned long currentMillis = millis();
+
+  if (currentMillis - prevColorChangeMillis >= colorChangeInterval) {
+    if (colorListPosition < 11) {
+      colorListPosition++;
+    } else {
+      colorListPosition = 0;
+    }
+    endPixels.fill(colorList[colorListPosition]);
+    wallPixels.fill(colorList[colorListPosition]);
+    endPixels.show();
+    wallPixels.show();
+    prevColorChangeMillis = millis();
+  }
+  /*
   if (currentMillis - prevWifiCheckMillis >= wifiInterval) {
   	prevWifiCheckMillis = currentMillis;
-	selectWiFi();
-	//printCurrentNet();
-	
   	Serial.print(F("Pinging "));
-	Serial.print(pingHost);
-	Serial.print(F(": "));
-
-	pingResult = WiFi.ping(pingHost, 128);
-
-	if (pingResult >= 0) {
-		Serial.print(F("SUCCESS! RTT = "));
-		Serial.print(pingResult);
-		Serial.println(F(" ms"));
-	} else {
-		Serial.print(F("FAILED! Error code: "));
-		Serial.println(pingResult);
-		Serial.println(F("Resetting WiFi..."));
-		pinMode(ESP32_RESETN,OUTPUT);
-		digitalWrite(ESP32_RESETN,LOW);
-		delay(500);
-		digitalWrite(ESP32_RESETN,HIGH);
-		setupWiFi();
-	}
-
-	
+  	Serial.print(pingHost);
+  	Serial.print(F(": "));
+  
+  	pingResult = WiFi.ping(pingHost, 128);
+  
+  	if (pingResult >= 0) {
+  		Serial.print(F("SUCCESS! RTT = "));
+  		Serial.print(pingResult);
+  		Serial.println(F(" ms"));
+  	} else {
+  		Serial.print(F("FAILED! Error code: "));
+  		Serial.println(pingResult);
+  		Serial.println(F("Resetting WiFi..."));
+  		pinMode(ESP32_RESETN,OUTPUT);
+  		digitalWrite(ESP32_RESETN,LOW);
+  		delay(500);
+  		digitalWrite(ESP32_RESETN,HIGH);
+  		setupWiFi();
+  	}
   }
-
-  receiveFromCube();  
   
   readUDP();
 
   delay(200);
+  */
   Watchdog.reset();
 //  Serial.println(F("loop"));
 } // END LOOP //
 
 void readUDP()
 {
-	selectWiFi();
+//	selectWiFi();
 	// if there's data available, read a packet
 	int packetSize = Udp.parsePacket();
 	if (packetSize)
@@ -383,10 +297,10 @@ void readUDP()
 		if(memcmp_P(packetBuffer, pigDrop, 7) == 0)
 		{
 			Serial.println(F("Pig Drop Command Recieved - Release the Pig Eggs!"));
-			selectRadio();
-			sendDispenseEvent();
+//			selectRadio();
+//			sendDispenseEvent();
 			
-			selectWiFi();
+//			selectWiFi();
 			// send a reply, to the IP address and port that sent us the packet we received
 			Udp.beginPacket(Udp.remoteIP(), Udp.remotePort());
 			Udp.write(AckBuffer, sizeof(AckBuffer));
@@ -448,63 +362,6 @@ void readUDP()
   }
 }*/
 
-void receiveFromCube()
-{
-	selectRadio();  
-	if (rf69.recv((uint8_t*)&eventData, &len) && len == sizeof(eventData))
-	{    
-		char buf[16];
-		//String stringBuf = "-00.000";
-		
-		Serial.print(F("Received: "));
-		Serial.print(F("c="));
-		Serial.print(itoa(eventData.cubeID, buf, 10));
-		Serial.print(F(" t="));
-		Serial.print(itoa(eventData.counter, buf, 10));
-		Serial.print(F(" s="));
-		Serial.print(itoa(eventData.side, buf, 10));
-		Serial.print(F(" g="));
-		Serial.print(rf69.lastRssi(), DEC);
-		Serial.print(F(" b="));
-		Serial.print(eventData.batteryVoltage);
-
-
-//		Serial.print(F(" FreeRAM=")); //F function does the same and is now a built in library, in IDE > 1.0.0
-//		Serial.print(freeMemory(), DEC);  // print how much RAM is available.
-		
-		if ((eventData.cubeID == 80) || (eventData.cubeID == 42) || (eventData.cubeID == 90)) // Only Maze and Turntable forwarded to Splunk
-		//if (c>0) // Forward all packets during testing
-		{
-			selectWiFi();
-			Udp.beginPacket(splunkIp, splunkPort);
-			Udp.write(cEquals);
-			Udp.write(itoa(eventData.cubeID, buf, 10));
-			Udp.write(tEquals);
-			Udp.write(itoa(eventData.counter, buf, 10));		
-			if ((eventData.cubeID < 49) || (eventData.cubeID > 59)) // If not coin
-			{
-				Udp.write(sEquals);
-				Udp.write(itoa(eventData.side, buf, 10));
-			}		
-			Udp.write(gEquals);
-			Udp.write(itoa(rf69.lastRssi(), buf, 10));
-			if (eventData.batteryVoltage > 0) // If battery powered
-			{
-				Udp.write(bEquals);
-				ftoa(eventData.batteryVoltage, buf, 3);
-				Udp.write(buf);
-			}
-//			Udp.write(fEquals);
-//			Udp.write(itoa(freeMemory(), buf, 10));
-			if(Udp.endPacket() == 1) {
-				Serial.print(F(" Packet sent"));
-			} else {
-				Serial.print(F(" Error sending UDP"));
-			}		
-		}
-		Serial.println(F(""));
-	}
-}
 
 // ftoa from http://www.ars-informatica.ca/eclectic/ftoa-convert-a-floating-point-number-to-a-character-array-on-the-arduino/
 void ftoa(float f, char *str, uint8_t precision) {
