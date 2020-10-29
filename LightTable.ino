@@ -32,7 +32,7 @@ long wifiInterval = 300000; // Check the wifi connection every minutes
 //uint8_t len = sizeof(eventData);
 
 
-
+/*
 // -------------- UDP Ethernet Variables ----------------------
 
 #define SPIWIFI       SPI  // The SPI port
@@ -127,7 +127,7 @@ void setupWiFi()
 
 
 }
-
+*/
 
 // NeoPixel Setup--------------------------------------------------------------
 
@@ -166,6 +166,43 @@ const uint32_t orange = wallPixels.Color(255, 128, 0);
 
 const int colorList[] = {red, rose, magenta, violet, blue, azure, cyan, springgreen, green, chartreuse, yellow, orange};
 
+// Returns the Red component of a 32-bit color
+uint8_t Red(uint32_t color)
+{
+    return (color >> 16) & 0xFF;
+}
+
+// Returns the Green component of a 32-bit color
+uint8_t Green(uint32_t color)
+{
+    return (color >> 8) & 0xFF;
+}
+
+// Returns the Blue component of a 32-bit color
+uint8_t Blue(uint32_t color)
+{
+    return color & 0xFF;
+}
+
+void colorFade(Adafruit_NeoPixel strip, uint8_t r, uint8_t g, uint8_t b, uint8_t wait) {
+  for(uint16_t i = 0; i < strip.numPixels(); i++) {
+      uint8_t startR, startG, startB;
+      uint32_t startColor = strip.getPixelColor(i); // get the current colour
+      startB = startColor & 0xFF;
+      startG = (startColor >> 8) & 0xFF;
+      startR = (startColor >> 16) & 0xFF;  // separate into RGB components
+
+      if ((startR != r) || (startG != g) || (startB != b)){  // while the curr color is not yet the target color
+        if (startR < r) startR++; else if (startR > r) startR--;  // increment or decrement the old color values
+        if (startG < g) startG++; else if (startG > g) startG--;
+        if (startB < b) startB++; else if (startB > b) startB--;
+        strip.setPixelColor(i, startR, startG, startB);  // set the color
+        strip.show();
+        // delay(1);  // add a delay if its too fast
+      }
+      delay(1000);
+  }
+}
 
 void setup() 
 {
@@ -178,11 +215,11 @@ void setup()
 
 	//pinMode(WIFI_SHIELD_CS, OUTPUT);
 
-	pinMode(ESP32_RESETN,OUTPUT);
+/*	pinMode(ESP32_RESETN,OUTPUT);
 	digitalWrite(ESP32_RESETN,LOW);
 	delay(500);
 	digitalWrite(ESP32_RESETN,HIGH);
-	/*setupWiFi();
+	setupWiFi();
 
 	Serial.print(F("Splunk IP: "));
 	Serial.println(splunkIp);
@@ -228,67 +265,47 @@ void loop()
     } else {
       colorListPosition = 0;
     }
-    endPixels.fill(colorList[colorListPosition]);
-    wallPixels.fill(colorList[colorListPosition]);
-    endPixels.show();
-    wallPixels.show();
+    
+    //for(uint16_t i = 0; i < strip.numPixels(); i++) {
+      uint8_t startR, startG, startB, endR, endG, endB;
+      uint32_t startColor = endPixels.getPixelColor(0); // get the current colour
+      startB = startColor & 0xFF;
+      startG = (startColor >> 8) & 0xFF;
+      startR = (startColor >> 16) & 0xFF;  // separate into RGB components
+      endB = colorList[colorListPosition] & 0xFF;
+      endG = (colorList[colorListPosition] >> 8) & 0xFF;
+      endR = (colorList[colorListPosition] >> 16) & 0xFF;  // separate into RGB components
+
+      if ((startR != endR) || (startG != endG) || (startB != endB)){  // while the curr color is not yet the target color
+        if (startR < endR) startR++; else if (startR > endR) startR--;  // increment or decrement the old color values
+        if (startG < endG) startG++; else if (startG > endG) startG--;
+        if (startB < endB) startB++; else if (startB > endB) startB--;
+        endPixels.fill(startR, startG, startB);  // set the color
+        wallPixels.fill(startR, startG, startB);  // set the color
+        endPixels.show();
+        wallPixels.show();
+        delay(100);  // add a delay if its too fast
+      }
+      //delay(100);
+  //}
+
+    
+    //endPixels.fill(colorList[colorListPosition]);
+    //wallPixels.fill(colorList[colorListPosition]);
+    //endPixels.show();
+    //wallPixels.show();
     prevColorChangeMillis = millis();
   }
-  /*
-  if (currentMillis - prevWifiCheckMillis >= wifiInterval) {
-  	prevWifiCheckMillis = currentMillis;
-  	Serial.print(F("Pinging "));
-  	Serial.print(pingHost);
-  	Serial.print(F(": "));
-  
-  	pingResult = WiFi.ping(pingHost, 128);
-  
-  	if (pingResult >= 0) {
-  		Serial.print(F("SUCCESS! RTT = "));
-  		Serial.print(pingResult);
-  		Serial.println(F(" ms"));
-  	} else {
-  		Serial.print(F("FAILED! Error code: "));
-  		Serial.println(pingResult);
-  		Serial.println(F("Resetting WiFi..."));
-  		pinMode(ESP32_RESETN,OUTPUT);
-  		digitalWrite(ESP32_RESETN,LOW);
-  		delay(500);
-  		digitalWrite(ESP32_RESETN,HIGH);
-  		setupWiFi();
-  	}
-  }
-  
-  readUDP();
-
-  delay(200);
-  */
   Watchdog.reset();
-//  Serial.println(F("loop"));
 } // END LOOP //
 
-void readUDP()
+/*void readUDP()
 {
 //	selectWiFi();
 	// if there's data available, read a packet
 	int packetSize = Udp.parsePacket();
 	if (packetSize)
 	{
-/*		Serial.print(F("Received packet of size "));
-		Serial.println(packetSize);
-		Serial.print(F("From "));
-		IPAddress remote = Udp.remoteIP();
-		for (int i = 0; i < 4; i++)
-		{
-			Serial.print(remote[i], DEC);
-			if (i < 3)
-			{
-				Serial.print(F("."));
-			}
-		}
-		Serial.print(F(", port "));
-		Serial.println(Udp.remotePort());
-*/
 		// read the packet into packetBufffer
 		Udp.read(packetBuffer, 255);
 		Serial.println(F("Contents:"));
@@ -333,36 +350,10 @@ void readUDP()
 
 
 	}
-}
-
-/*void readUDP()
-{
-  // if there's data available, read a packet
-  int packetSize = Udp.parsePacket();
-  if (packetSize)
-  {
-    Serial.print("Received packet of size ");
-    Serial.println(packetSize);
-    Serial.print("From ");
-    IPAddress remoteIp = Udp.remoteIP();
-    Serial.print(remoteIp);
-    Serial.print(", port ");
-    Serial.println(Udp.remotePort());
-
-    // read the packet into packetBufffer
-    int len = Udp.read(packetBuffer, 255);
-    if (len > 0) packetBuffer[len] = 0;
-    Serial.println("Contents:");
-    Serial.println(packetBuffer);
-
-    // send a reply, to the IP address and port that sent us the packet we received
-    Udp.beginPacket(Udp.remoteIP(), Udp.remotePort());
-    Udp.write(ReplyBuffer);
-    Udp.endPacket();
-  }
 }*/
 
 
+/*
 // ftoa from http://www.ars-informatica.ca/eclectic/ftoa-convert-a-floating-point-number-to-a-character-array-on-the-arduino/
 void ftoa(float f, char *str, uint8_t precision) {
   uint8_t i, j, divisor = 1;
@@ -473,3 +464,4 @@ void printMacAddress(byte mac[]) {
   }
   Serial.println();
 }
+*/
